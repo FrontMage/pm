@@ -101,10 +101,13 @@ func ensureSock() (net.Conn, error) {
 				"/tmp/pm.log&",
 			},
 		}
-		if err := daemon.Start(); err != nil {
-			println(err.Error())
-		}
-		time.Sleep(2 * time.Second)
+		go func() {
+			if err := daemon.Start(); err != nil {
+				println(err.Error())
+			}
+		}()
+		println("Daemon started")
+		time.Sleep(time.Second)
 		return net.Dial("unix", "/tmp/pm.sock")
 	}
 	return c, nil

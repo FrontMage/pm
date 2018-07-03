@@ -28,11 +28,12 @@ type Warden struct {
 }
 
 func (w *Warden) NewProcess(p ps.Process) (int64, error) {
-	err := p.Start()
-	if err != nil {
-		return -1, err
-	}
-	time.Sleep(3 * time.Second)
+	go func() {
+		if err := p.Start(); err != nil {
+			println("Failed to start process", err.Error())
+		}
+	}()
+	time.Sleep(2 * time.Second)
 	seqID, err := w.Seq.Next()
 	if err != nil {
 		return -1, nil

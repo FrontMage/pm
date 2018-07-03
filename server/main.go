@@ -3,22 +3,48 @@ package main
 import (
 	"bytes"
 	"encoding/json"
-	"fmt"
 	"log"
 	"net"
 	"os"
+	"time"
 
+	"github.com/FrontMage/goseq"
 	"github.com/FrontMage/gosock"
 	"github.com/FrontMage/pm/ps"
 	"github.com/FrontMage/pm/server/protocol"
 	"github.com/FrontMage/pm/watcher"
-	daemon "github.com/takama/daemon"
+	// daemon "github.com/takama/daemon"
 )
 
 var pidFile = "/tmp/pm.pid"
 var pmLogFile = "/tmp/pm.log"
 
-var w = &watcher.Warden{}
+var w = &watcher.Warden{
+	PS:  map[string]ps.Process{},
+	Seq: &goseq.MemSequencer{},
+}
+
+func writeBrief(conn net.Conn) error {
+	var buf bytes.Buffer
+	err := w.Brief(&buf)
+	if err != nil {
+		return err
+	}
+	if buf.Len() > 0 {
+		_, err = conn.Write(buf.Bytes())
+		if err != nil {
+			return err
+		}
+		println(buf.String())
+	} else {
+		_, err = conn.Write([]byte("No running process"))
+		if err != nil {
+			return err
+		}
+		println(buf.String())
+	}
+	return nil
+}
 
 func switchCommand(conn net.Conn) {
 	buf := make([]byte, 512)
@@ -39,19 +65,7 @@ func switchCommand(conn net.Conn) {
 
 	switch command.Command {
 	case protocol.CommandList:
-		var buf bytes.Buffer
-		err := w.Brief(&buf)
-		if err != nil {
-			println("Brief error:", err.Error())
-		}
-		if buf.Len() == 0 {
-			_, err = conn.Write([]byte("No running process"))
-			if err != nil {
-				println("Write error:", err.Error())
-			}
-		}
-		_, err = conn.Write(buf.Bytes())
-		if err != nil {
+		if err := writeBrief(conn); err != nil {
 			println("Write error:", err.Error())
 		}
 	case protocol.CommandStart:
@@ -62,22 +76,19 @@ func switchCommand(conn net.Conn) {
 			// StdErr: os.Stderr,
 			// StdOut: os.Stdout,
 		}
-		_, err := w.NewProcess(p)
-		if err != nil {
-			println("New process error:", err.Error())
-			conn.Write([]byte(fmt.Sprintf("New process failed with %+v", command)))
-			return
-		}
-		var buf bytes.Buffer
-		err = w.Brief(&buf)
-		if err != nil {
-			println("Brief error:", err.Error())
-		}
-		_, err = conn.Write(buf.Bytes())
-		if err != nil {
+		println("Starting process...")
+		go func() {
+			_, err := w.NewProcess(p)
+			if err != nil {
+				println("New process error:", err.Error())
+			}
+		}()
+
+		time.Sleep(2 * time.Second)
+		println("Sending brief to client...")
+		if err := writeBrief(conn); err != nil {
 			println("Write error:", err.Error())
 		}
-		println(buf.String())
 	}
 }
 
@@ -106,18 +117,18 @@ func main() {
 	gosock.Listen("/tmp/pm.sock", switchCommand)
 }
 
-func switchArgs(service daemon.Daemon) (string, error) {
-	switch os.Args[1] {
-	case "install":
-		return service.Install()
-	case "remove":
-		return service.Remove()
-	case "status":
-		return service.Status()
-	case "start":
-		return service.Start()
-	case "stop":
-		return service.Stop()
-	}
-	return "", nil
-}
+// func switchArgs(service daemon.Daemon) (string, error) {
+// 	switch os.Args[1] {
+// 	case "install":
+// 		return service.Install()
+// 	case "remove":
+// 		return service.Remove()
+// 	case "status":
+// 		return service.Status()
+// 	case "start":
+// 		return service.Start()
+// 	case "stop":
+// 		return service.Stop()
+// 	}
+// 	return "", nil
+// }
