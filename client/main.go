@@ -7,7 +7,9 @@ import (
 	"io"
 	"net"
 	"os"
+	"time"
 
+	"github.com/FrontMage/pm/ps"
 	"github.com/FrontMage/pm/server/protocol"
 )
 
@@ -30,16 +32,98 @@ func main() {
 		if err := listProcesses(); err != nil {
 			println(err.Error())
 		}
+	case "start":
+		// TODO: parse "tail -f" like string based command
+		if len(os.Args) < 3 {
+			println("Command is required fo start")
+			return
+		}
+		if err := startProcess(os.Args[2:]); err != nil {
+			println(err.Error())
+		}
 	default:
 		flag.PrintDefaults()
 	}
 
 }
 
+func writeCommand(c net.Conn, co *protocol.UpCommingCommand) error {
+	bytes, err := json.Marshal(co)
+	if err != nil {
+		return err
+	}
+	_, err = c.Write(bytes)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+func startProcess(commands []string) error {
+	// Dial socket
+	c, err := ensureSock()
+	if err != nil {
+		return err
+	}
+	defer func() {
+		if err := c.Close(); err != nil {
+			println(err.Error())
+		}
+	}()
+
+	// Write command
+	command := &protocol.UpCommingCommand{
+		Command:     protocol.CommandStart,
+		CommandExec: commands[0],
+		Args:        commands[1:],
+	}
+	if err := writeCommand(c, command); err != nil {
+		return err
+	}
+
+	// Listen to response
+	return readResult(c)
+}
+
+func ensureSock() (net.Conn, error) {
+	// Dial socket
+	d := net.Dialer{Timeout: time.Second}
+	c, err := d.Dial("unix", "/tmp/pm.sock")
+	if err != nil {
+		// Socket error start the pm daemon
+		fmt.Println("pm daemon seems not running, starting daemon...")
+		daemon := &ps.PS{
+			ProcessName: "pm server",
+			Command:     "nohup",
+			Args: []string{
+				"pm_server",
+				"&>",
+				"/tmp/pm.log&",
+			},
+		}
+		if err := daemon.Start(); err != nil {
+			println(err.Error())
+		}
+		time.Sleep(2 * time.Second)
+		return net.Dial("unix", "/tmp/pm.sock")
+	}
+	return c, nil
+}
+
+func readResult(c net.Conn) error {
+	// Listen to response
+	buf := make([]byte, 1024)
+	n, err := c.Read(buf[:])
+	if err != nil {
+		return err
+	}
+	println(string(buf[0:n]))
+	return nil
+}
+
 func listProcesses() error {
 	// Dial socket
-	c, err := net.Dial("unix", "/tmp/pm.sock")
-	// TODO: no sock or timeout, start the sever daemon
+	c, err := ensureSock()
 	if err != nil {
 		return err
 	}
@@ -63,13 +147,7 @@ func listProcesses() error {
 	}
 
 	// Listen to response
-	buf := make([]byte, 1024)
-	n, err := c.Read(buf[:])
-	if err != nil {
-		return err
-	}
-	println(string(buf[0:n]))
-	return nil
+	return readResult(c)
 }
 
 func reader(r io.Reader) {

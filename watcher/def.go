@@ -3,7 +3,10 @@ package watcher
 import (
 	"encoding/json"
 	"io"
+	"strconv"
+	"time"
 
+	"github.com/FrontMage/goseq"
 	"github.com/FrontMage/pm/ps"
 	"github.com/olekukonko/tablewriter"
 )
@@ -15,10 +18,27 @@ type Watcher interface {
 	Brief(writer io.Writer) error
 	// BriefJSON returns a json formated brief, which should be an Array
 	BriefJSON() ([]byte, error)
+	// NewProcess start a new process, give a sequence id to it
+	NewProcess(ps.Process) (int64, error)
 }
 
 type Warden struct {
-	PS map[string]ps.Process
+	PS  map[string]ps.Process
+	Seq *goseq.MemSequencer
+}
+
+func (w *Warden) NewProcess(p ps.Process) (int64, error) {
+	err := p.Start()
+	if err != nil {
+		return -1, err
+	}
+	time.Sleep(3 * time.Second)
+	seqID, err := w.Seq.Next()
+	if err != nil {
+		return -1, nil
+	}
+	w.PS[strconv.FormatInt(seqID, 10)] = p
+	return seqID, nil
 }
 
 func (w *Warden) Processes() map[string]ps.Process {

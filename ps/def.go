@@ -137,11 +137,15 @@ func (ps *PS) Brief() ([]map[string]string, error) {
 	if err != nil {
 		return nil, err
 	}
+	pid := -1
+	if ps.Cmd != nil && ps.Cmd.Process != nil {
+		pid = ps.Cmd.Process.Pid
+	}
 	brief = append(
 		brief,
 		map[string]string{"id": fmt.Sprintf("%d", ps.ID)},
 		map[string]string{"name": ps.Name()},
-		map[string]string{"pid": fmt.Sprintf("%d", ps.Cmd.Process.Pid)},
+		map[string]string{"pid": fmt.Sprintf("%d", pid)},
 		map[string]string{"command": ps.Command},
 		// map[string]string{"args": strings.Join(ps.Args, " ")},
 		map[string]string{"up time": fmtDuration(ps.UpTime())},
