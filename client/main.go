@@ -107,8 +107,14 @@ func ensureSock() (net.Conn, error) {
 			}
 		}()
 		println("Daemon started")
-		time.Sleep(time.Second)
-		return net.Dial("unix", "/tmp/pm.sock")
+		for i := 0; i < 10; i++ {
+			time.Sleep(time.Second)
+			conn, err := net.Dial("unix", "/tmp/pm.sock")
+			if err == nil {
+				return conn, nil
+			}
+		}
+		println("Dial timeout after 10s")
 	}
 	return c, nil
 }

@@ -5,15 +5,12 @@ import (
 	"encoding/json"
 	"log"
 	"net"
-	"os"
-	"time"
 
 	"github.com/FrontMage/goseq"
 	"github.com/FrontMage/gosock"
 	"github.com/FrontMage/pm/ps"
 	"github.com/FrontMage/pm/server/protocol"
 	"github.com/FrontMage/pm/watcher"
-	// daemon "github.com/takama/daemon"
 )
 
 var pidFile = "/tmp/pm.pid"
@@ -77,14 +74,12 @@ func switchCommand(conn net.Conn) {
 			// StdOut: os.Stdout,
 		}
 		println("Starting process...")
-		go func() {
-			_, err := w.NewProcess(p)
-			if err != nil {
-				println("New process error:", err.Error())
-			}
-		}()
+		seqID, err := w.NewProcess(p)
+		println("New process", seqID)
+		if err != nil {
+			println("New process error:", err.Error())
+		}
 
-		time.Sleep(2 * time.Second)
 		println("Sending brief to client...")
 		if err := writeBrief(conn); err != nil {
 			println("Write error:", err.Error())
@@ -92,43 +87,8 @@ func switchCommand(conn net.Conn) {
 	}
 }
 
-func rmIfExists(file string) error {
-	if _, err := os.Stat(file); err == nil {
-		return os.Remove(file)
-	}
-	return nil
-}
-
 func main() {
-	// service, err := daemon.New("pm_server", "go process manager server daemon")
-	// if err != nil {
-	// 	log.Fatal("Error: ", err)
-	// }
-	// status, err := switchArgs(service)
-	// if err != nil {
-	// 	println(err.Error())
-	// 	return
-	// }
-
-	// fmt.Println(status)
-	// go gosock.Listen("/tmp/pm.sock", switchCommand)
 	println("- - - - - - - - - - - - - - -")
 	println("server started")
 	gosock.Listen("/tmp/pm.sock", switchCommand)
 }
-
-// func switchArgs(service daemon.Daemon) (string, error) {
-// 	switch os.Args[1] {
-// 	case "install":
-// 		return service.Install()
-// 	case "remove":
-// 		return service.Remove()
-// 	case "status":
-// 		return service.Status()
-// 	case "start":
-// 		return service.Start()
-// 	case "stop":
-// 		return service.Stop()
-// 	}
-// 	return "", nil
-// }

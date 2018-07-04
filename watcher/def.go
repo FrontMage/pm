@@ -33,12 +33,17 @@ func (w *Warden) NewProcess(p ps.Process) (int64, error) {
 			println("Failed to start process", err.Error())
 		}
 	}()
-	time.Sleep(2 * time.Second)
 	seqID, err := w.Seq.Next()
 	if err != nil {
 		return -1, nil
 	}
 	w.PS[strconv.FormatInt(seqID, 10)] = p
+	for i := 0; i < 10; i++ {
+		time.Sleep(1 * time.Second)
+		if p.CMD() != nil && p.CMD().Process != nil {
+			break
+		}
+	}
 	return seqID, nil
 }
 
