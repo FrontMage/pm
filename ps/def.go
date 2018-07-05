@@ -66,7 +66,7 @@ func (ps *PS) Start() error {
 	now := time.Now()
 	ps.StartTime = &now
 	ps.Status = StatusRunning
-	return ps.Cmd.Run()
+	return ps.Cmd.Start()
 }
 
 func (ps *PS) Stop() error {

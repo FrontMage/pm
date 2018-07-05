@@ -5,6 +5,7 @@ const (
 	CommandStart = "start"
 	PidFile      = "/tmp/pm.pid"
 	LogFile      = "/tmp/pm.log"
+	SockFile     = "/tmp/pm.sock"
 )
 
 type UpCommingCommand struct {

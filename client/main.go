@@ -131,21 +131,37 @@ func killPS(pid string) error {
 	return killCommand.Start()
 }
 
+func ensureLogFile() (*os.File, error) {
+	if _, err := os.Stat(protocol.LogFile); err != nil {
+		if _, err := os.Create(protocol.LogFile); err != nil {
+			return nil, err
+		} else if f, err := os.OpenFile(protocol.LogFile, os.O_RDWR|os.O_CREATE|os.O_APPEND, 0666); err != nil {
+			return f, nil
+		} else {
+			return nil, err
+		}
+	}
+	return os.OpenFile(protocol.LogFile, os.O_RDWR|os.O_CREATE|os.O_APPEND, 0666)
+}
+
 func ensureSock() (net.Conn, error) {
 	// Dial socket
 	d := net.Dialer{Timeout: time.Second}
-	c, err := d.Dial("unix", "/tmp/pm.sock")
+	c, err := d.Dial("unix", protocol.SockFile)
 	if err != nil {
 		// Socket error start the pm daemon
 		fmt.Println("pm daemon seems not running, starting daemon...")
+		f, err := ensureLogFile()
+		if err != nil {
+			println("Failed to get log file", err.Error())
+		}
+		// defer f.Close()
+
 		daemon := &ps.PS{
 			ProcessName: "pm server",
-			Command:     "nohup",
-			Args: []string{
-				"pm_server",
-				"&>",
-				"/tmp/pm.log&",
-			},
+			Command:     "pm_server",
+			StdOut:      f,
+			StdErr:      f,
 		}
 		go func() {
 			if err := daemon.Start(); err != nil {

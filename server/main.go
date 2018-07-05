@@ -101,5 +101,5 @@ func main() {
 	println("- - - - - - - - - - - - - - -")
 	println("server started")
 	writePid2File()
-	gosock.Listen("/tmp/pm.sock", switchCommand)
+	gosock.Listen(protocol.SockFile, switchCommand)
 }
