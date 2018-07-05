@@ -3,6 +3,8 @@ package protocol
 const (
 	CommandList  = "list"
 	CommandStart = "start"
+	PidFile      = "/tmp/pm.pid"
+	LogFile      = "/tmp/pm.log"
 )
 
 type UpCommingCommand struct {

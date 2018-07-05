@@ -5,8 +5,10 @@ import (
 	"flag"
 	"fmt"
 	"io"
+	"io/ioutil"
 	"net"
 	"os"
+	"strconv"
 	"time"
 
 	"github.com/FrontMage/pm/ps"
@@ -41,10 +43,46 @@ func main() {
 		if err := startProcess(os.Args[2:]); err != nil {
 			println(err.Error())
 		}
+	case "kill":
+		f, err := os.Open(protocol.PidFile)
+		if err != nil {
+			fmt.Println("pm_server daemon is not running")
+			return
+		}
+		defer f.Close()
+		if content, err := ioutil.ReadAll(f); err != nil {
+			println("Failed to read from pid file", err.Error())
+		} else {
+			println("Found pm_server pid", string(content))
+			pid, err := strconv.ParseInt(string(content), 10, 32)
+			if err != nil {
+				println("Parse pid failed", err.Error())
+				return
+			}
+			p, err := os.FindProcess(int(pid))
+			if err != nil {
+				println("Find daemon failed", err.Error())
+			}
+			if err := p.Signal(os.Interrupt); err != nil {
+				println("Kill failed", err.Error())
+			} else {
+				println("Daemon is closed")
+				if err := rmIfExists(protocol.PidFile); err != nil {
+					println("Failed to clean up pid file", err.Error())
+				}
+			}
+		}
 	default:
 		flag.PrintDefaults()
 	}
 
+}
+
+func rmIfExists(file string) error {
+	if _, err := os.Stat(file); err == nil {
+		return os.Remove(file)
+	}
+	return nil
 }
 
 func writeCommand(c net.Conn, co *protocol.UpCommingCommand) error {
@@ -83,6 +121,14 @@ func startProcess(commands []string) error {
 
 	// Listen to response
 	return readResult(c)
+}
+
+func killPS(pid string) error {
+	killCommand := &ps.PS{
+		Command: "kill",
+		Args:    []string{pid},
+	}
+	return killCommand.Start()
 }
 
 func ensureSock() (net.Conn, error) {

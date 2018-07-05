@@ -5,6 +5,8 @@ import (
 	"encoding/json"
 	"log"
 	"net"
+	"os"
+	"strconv"
 
 	"github.com/FrontMage/goseq"
 	"github.com/FrontMage/gosock"
@@ -12,9 +14,6 @@ import (
 	"github.com/FrontMage/pm/server/protocol"
 	"github.com/FrontMage/pm/watcher"
 )
-
-var pidFile = "/tmp/pm.pid"
-var pmLogFile = "/tmp/pm.log"
 
 var w = &watcher.Warden{
 	PS:  map[string]ps.Process{},
@@ -87,8 +86,20 @@ func switchCommand(conn net.Conn) {
 	}
 }
 
+func writePid2File() error {
+	pid := os.Getpid()
+	f, err := os.Create(protocol.PidFile)
+	if err != nil {
+		return err
+	}
+	defer f.Close()
+	_, err = f.Write([]byte(strconv.Itoa(pid)))
+	return err
+}
+
 func main() {
 	println("- - - - - - - - - - - - - - -")
 	println("server started")
+	writePid2File()
 	gosock.Listen("/tmp/pm.sock", switchCommand)
 }
