@@ -9,6 +9,7 @@ const (
 )
 
 type UpCommingCommand struct {
+	CommandName string   `json:"command_name"`
 	Command     string   `json:"command"`
 	CommandExec string   `json:"command_exec"`
 	Args        []string `json:"args"`

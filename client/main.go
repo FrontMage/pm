@@ -9,6 +9,7 @@ import (
 	"net"
 	"os"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/FrontMage/pm/ps"
@@ -16,11 +17,16 @@ import (
 )
 
 func main() {
+	startCommand := flag.NewFlagSet("list", flag.ExitOnError)
+	commandName := startCommand.String("name", "MyPS", "specify starting command name")
+	command := startCommand.String("command", "", "specify command to run")
 	// Verify that a subcommand has been provided
 	// os.Arg[0] is the main command
 	// os.Arg[1] will be the subcommand
 	if len(os.Args) < 2 {
-		fmt.Println("list list all proccesses")
+		println("list list all running process")
+		println("kill kill pm_server daemon")
+		startCommand.PrintDefaults()
 		flag.PrintDefaults()
 		os.Exit(1)
 	}
@@ -35,12 +41,20 @@ func main() {
 			println(err.Error())
 		}
 	case "start":
-		// TODO: parse "tail -f" like string based command
 		if len(os.Args) < 3 {
 			println("Command is required fo start")
+			startCommand.PrintDefaults()
 			return
 		}
-		if err := startProcess(os.Args[2:]); err != nil {
+		if err := startCommand.Parse(os.Args[2:]); err != nil {
+			println("Failed to parse flags", err.Error())
+		}
+		if *command == "" {
+			startCommand.PrintDefaults()
+			return
+		}
+		tokens := strings.Split(*command, " ")
+		if err := startProcess(tokens, *commandName); err != nil {
 			println(err.Error())
 		}
 	case "kill":
@@ -97,7 +111,7 @@ func writeCommand(c net.Conn, co *protocol.UpCommingCommand) error {
 	return nil
 }
 
-func startProcess(commands []string) error {
+func startProcess(commands []string, commandName string) error {
 	// Dial socket
 	c, err := ensureSock()
 	if err != nil {
@@ -111,6 +125,7 @@ func startProcess(commands []string) error {
 
 	// Write command
 	command := &protocol.UpCommingCommand{
+		CommandName: commandName,
 		Command:     protocol.CommandStart,
 		CommandExec: commands[0],
 		Args:        commands[1:],

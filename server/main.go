@@ -66,7 +66,7 @@ func switchCommand(conn net.Conn) {
 		}
 	case protocol.CommandStart:
 		p := &ps.PS{
-			ProcessName: "MyPS",
+			ProcessName: command.CommandName,
 			Command:     command.CommandExec,
 			Args:        command.Args,
 			// StdErr: os.Stderr,
