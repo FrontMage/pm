@@ -17,22 +17,6 @@ const (
 	StatusErrored = "errored"
 )
 
-// Process defines process structure, aims to be easy to use
-type Process interface {
-	CMD() *exec.Cmd
-	Start() error
-	Stop() error
-	Kill() error
-	Wait() error
-
-	Name() string
-	UpTime() time.Duration
-	Memory() int
-	User() (string, error)
-
-	Brief() ([]map[string]string, error)
-}
-
 // PS os process wrapper
 type PS struct {
 	ID          uint
@@ -114,7 +98,7 @@ func (ps *PS) Name() string {
 
 func (ps *PS) UpTime() time.Duration {
 	if ps.StopTime != nil {
-		return time.Since(*ps.StopTime).Round(time.Second) - time.Since(*ps.StartTime).Round(time.Second)
+		return 0
 	}
 	return time.Since(*ps.StartTime).Round(time.Second)
 }

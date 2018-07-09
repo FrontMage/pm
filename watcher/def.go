@@ -11,23 +11,12 @@ import (
 	"github.com/olekukonko/tablewriter"
 )
 
-// Watcher watch over processes, keep trace there status
-type Watcher interface {
-	Processes() map[string]ps.Process
-	// Brief brief on all processes
-	Brief(writer io.Writer) error
-	// BriefJSON returns a json formated brief, which should be an Array
-	BriefJSON() ([]byte, error)
-	// NewProcess start a new process, give a sequence id to it
-	NewProcess(ps.Process) (int64, error)
-}
-
 type Warden struct {
-	PS  map[string]ps.Process
+	PS  map[string]*ps.PS
 	Seq *goseq.MemSequencer
 }
 
-func (w *Warden) NewProcess(p ps.Process) (int64, error) {
+func (w *Warden) NewProcess(p *ps.PS) (int64, error) {
 	go func() {
 		if err := p.Start(); err != nil {
 			println("Failed to start process", err.Error())
@@ -37,6 +26,7 @@ func (w *Warden) NewProcess(p ps.Process) (int64, error) {
 	if err != nil {
 		return -1, nil
 	}
+	p.ID = uint(seqID)
 	w.PS[strconv.FormatInt(seqID, 10)] = p
 	for i := 0; i < 10; i++ {
 		time.Sleep(1 * time.Second)
@@ -47,7 +37,7 @@ func (w *Warden) NewProcess(p ps.Process) (int64, error) {
 	return seqID, nil
 }
 
-func (w *Warden) Processes() map[string]ps.Process {
+func (w *Warden) Processes() map[string]*ps.PS {
 	return w.PS
 }
 
@@ -106,4 +96,14 @@ func (w *Warden) BriefJSON() ([]byte, error) {
 	}
 
 	return json.Marshal(briefs)
+}
+
+func (w *Warden) FindPSByID(id string) (*ps.PS, error) {
+	for key := range w.PS {
+		println(key)
+	}
+	if ps, exists := w.PS[id]; exists {
+		return ps, nil
+	}
+	return nil, nil
 }

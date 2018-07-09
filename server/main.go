@@ -3,6 +3,7 @@ package main
 import (
 	"bytes"
 	"encoding/json"
+	"fmt"
 	"log"
 	"net"
 	"os"
@@ -16,7 +17,7 @@ import (
 )
 
 var w = &watcher.Warden{
-	PS:  map[string]ps.Process{},
+	PS:  map[string]*ps.PS{},
 	Seq: &goseq.MemSequencer{},
 }
 
@@ -26,18 +27,22 @@ func writeBrief(conn net.Conn) error {
 	if err != nil {
 		return err
 	}
-	if buf.Len() > 0 {
-		_, err = conn.Write(buf.Bytes())
+	return writeResult(conn, buf.Bytes())
+}
+
+func writeResult(conn net.Conn, result []byte) error {
+	if len(result) > 0 {
+		_, err := conn.Write(result)
 		if err != nil {
 			return err
 		}
-		println(buf.String())
+		println(string(result))
 	} else {
-		_, err = conn.Write([]byte("No running process"))
+		_, err := conn.Write([]byte("No running process"))
 		if err != nil {
 			return err
 		}
-		println(buf.String())
+		println(string(result))
 	}
 	return nil
 }
@@ -77,11 +82,30 @@ func switchCommand(conn net.Conn) {
 		println("New process", seqID)
 		if err != nil {
 			println("New process error:", err.Error())
+			writeResult(conn, []byte(fmt.Sprintf("New process error: %s", err.Error())))
+			return
 		}
 
 		println("Sending brief to client...")
 		if err := writeBrief(conn); err != nil {
 			println("Write error:", err.Error())
+		}
+	case protocol.CommandStop:
+		if ps, err := w.FindPSByID(command.CommandID); err != nil {
+			println("Stop process error:", err.Error())
+		} else if ps == nil {
+			println("Can't find process id=", command.CommandID)
+			writeResult(conn, []byte("Can't find process"))
+			return
+		} else if err := ps.Stop(); err != nil {
+			println("Failed to stop process:", err.Error())
+			writeResult(conn, []byte(fmt.Sprintf("Failed to stop process: %s", err.Error())))
+			return
+		} else {
+			println("Sending brief to client...")
+			if err := writeBrief(conn); err != nil {
+				println("Write error:", err.Error())
+			}
 		}
 	}
 }

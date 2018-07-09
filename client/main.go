@@ -20,6 +20,9 @@ func main() {
 	startCommand := flag.NewFlagSet("list", flag.ExitOnError)
 	commandName := startCommand.String("name", "MyPS", "specify starting command name")
 	command := startCommand.String("command", "", "specify command to run")
+
+	stopCommand := flag.NewFlagSet("stop", flag.ExitOnError)
+	commandID := stopCommand.String("id", "", "specify process id to kill")
 	// Verify that a subcommand has been provided
 	// os.Arg[0] is the main command
 	// os.Arg[1] will be the subcommand
@@ -55,6 +58,22 @@ func main() {
 		}
 		tokens := strings.Split(*command, " ")
 		if err := startProcess(tokens, *commandName); err != nil {
+			println(err.Error())
+		}
+	case "stop":
+		if len(os.Args) < 3 {
+			println("Process id is required for stop")
+			stopCommand.PrintDefaults()
+			return
+		}
+		if err := stopCommand.Parse(os.Args[2:]); err != nil {
+			println("Failed to parse flags", err.Error())
+		}
+		if *commandID == "" {
+			startCommand.PrintDefaults()
+			return
+		}
+		if err := stopProcess(*commandID); err != nil {
 			println(err.Error())
 		}
 	case "kill":
@@ -129,6 +148,31 @@ func startProcess(commands []string, commandName string) error {
 		Command:     protocol.CommandStart,
 		CommandExec: commands[0],
 		Args:        commands[1:],
+	}
+	if err := writeCommand(c, command); err != nil {
+		return err
+	}
+
+	// Listen to response
+	return readResult(c)
+}
+
+func stopProcess(commandID string) error {
+	// Dial socket
+	c, err := ensureSock()
+	if err != nil {
+		return err
+	}
+	defer func() {
+		if err := c.Close(); err != nil {
+			println(err.Error())
+		}
+	}()
+
+	// Write command
+	command := &protocol.UpCommingCommand{
+		Command:   protocol.CommandStop,
+		CommandID: commandID,
 	}
 	if err := writeCommand(c, command); err != nil {
 		return err
